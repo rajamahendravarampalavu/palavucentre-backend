@@ -1,0 +1,58 @@
+services:
+  - type: web
+    name: palavu-centre-backend
+    runtime: node
+    rootDir: backend
+    plan: free
+    buildCommand: npm ci && npm run prisma:generate && npm run prisma:deploy
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
+      - key: COOKIE_DOMAIN
+        sync: false
+      - key: COOKIE_SAME_SITE
+        value: none
+      - key: COOKIE_NAME
+        value: palavu_admin_token
+      - key: USER_COOKIE_NAME
+        value: palavu_user_token
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: ADMIN_NAME
+        value: RajaMahendravaram PalavuCentre Admin
+      - key: ORDER_TAX_PERCENT
+        value: 5
+      - key: CURRENCY
+        value: INR
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: DEFAULT_HERO_MEDIA_URL
+        value: /hero-bg.jpg
+      - key: DEFAULT_LOGO_URL
+        value: ""
+      - key: MEDIA_DELETE_ON_REMOVE
+        value: true
+      - key: MAX_UPLOAD_IMAGES
+        value: 50
+      - key: MAX_UPLOAD_FILE_SIZE_MB
+        value: 5
+      - key: MAX_UPLOAD_SOURCE_FILE_SIZE_MB
+        value: 20

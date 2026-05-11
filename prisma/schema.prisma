@@ -1,0 +1,451 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OrderStatus {
+  pending
+  accepted
+  preparing
+  ready
+  delivered
+  cancelled
+}
+
+enum PaymentStatus {
+  unpaid
+  pending
+  paid
+  failed
+  refunded
+}
+
+enum PaymentMethod {
+  cod
+  online
+}
+
+enum InquiryStatus {
+  new
+  contacted
+  closed
+}
+
+enum MediaType {
+  image
+  video
+}
+
+enum ReviewSource {
+  manual
+  google
+  internal
+}
+
+enum OfferStatus {
+  draft
+  scheduled
+  active
+  expired
+}
+
+enum OtpStatus {
+  pending
+  verified
+  expired
+}
+
+enum DiscountType {
+  percentage
+  fixed
+}
+
+enum SocialPlatform {
+  whatsapp
+  instagram
+  facebook
+  linkedin
+  youtube
+}
+
+model Admin {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  name         String
+  passwordHash String
+  isActive     Boolean  @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("admins")
+}
+
+model User {
+  id           Int           @id @default(autoincrement())
+  name         String
+  email        String        @unique
+  googleSub    String?       @unique
+  passwordHash String
+  isActive     Boolean       @default(true)
+  lastLoginAt  DateTime?
+  addresses    UserAddress[]
+  orders       Order[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@map("users")
+}
+
+model UserAddress {
+  id            Int      @id @default(autoincrement())
+  userId        Int
+  label         String?
+  recipientName String
+  phone         String
+  addressLine1  String
+  addressLine2  String?
+  landmark      String?
+  city          String
+  state         String?
+  postalCode    String?
+  fullAddress   String
+  isDefault     Boolean  @default(false)
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders        Order[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId, isDefault, createdAt])
+  @@map("user_addresses")
+}
+
+model MenuCategory {
+  id          Int        @id @default(autoincrement())
+  name        String
+  slug        String     @unique
+  description String?
+  icon        String     @default("chef-hat")
+  sortOrder   Int        @default(0)
+  isActive    Boolean    @default(true)
+  items       MenuItem[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([isActive, sortOrder])
+  @@map("menu_categories")
+}
+
+model MenuItem {
+  id               Int          @id @default(autoincrement())
+  categoryId       Int
+  name             String
+  slug             String       @unique
+  shortDescription String?
+  description      String?
+  imageUrl         String?
+  imagePublicId    String?
+  pricePaise       Int
+  isVeg            Boolean      @default(false)
+  isBestseller     Boolean      @default(false)
+  isAvailable      Boolean      @default(true)
+  sortOrder        Int          @default(0)
+  category         MenuCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  orderItems       OrderItem[]
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@index([categoryId, isAvailable, sortOrder])
+  @@map("menu_items")
+}
+
+model Order {
+  id              Int           @id @default(autoincrement())
+  userId          Int?
+  userAddressId   Int?
+  promoCodeId     Int?
+  orderNumber     String        @unique
+  customerName    String
+  phone           String
+  whatsapp        String?
+  email           String?
+  addressLine1    String
+  addressLine2    String?
+  landmark        String?
+  city            String?
+  state           String?
+  postalCode      String?
+  fullAddress     String
+  notes           String?
+  storeLocation   String?
+  source          String        @default("web")
+  paymentMethod   PaymentMethod
+  paymentStatus   PaymentStatus @default(unpaid)
+  orderStatus     OrderStatus   @default(pending)
+  subtotalPaise   Int
+  discountPaise   Int           @default(0)
+  deliveryFeePaise Int          @default(0)
+  promoCode       String?
+  taxPercent      Decimal       @default(5) @db.Decimal(5, 2)
+  taxPaise        Int
+  grandTotalPaise Int
+  currency        String        @default("INR")
+  isOtpVerified   Boolean       @default(false)
+  acceptedAt      DateTime?
+  deliveredAt     DateTime?
+  cancelledAt     DateTime?
+  user            User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  address         UserAddress?  @relation(fields: [userAddressId], references: [id], onDelete: SetNull)
+  promoCodeRef    PromoCode?    @relation(fields: [promoCodeId], references: [id], onDelete: SetNull)
+  items           OrderItem[]
+  payments        Payment[]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([orderStatus, createdAt])
+  @@index([paymentStatus, createdAt])
+  @@index([phone, createdAt])
+  @@index([userId, createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id              Int      @id @default(autoincrement())
+  orderId         Int
+  menuItemId      Int?
+  itemName        String
+  itemDescription String?
+  itemImageUrl    String?
+  unitPricePaise  Int
+  quantity        Int
+  lineTotalPaise  Int
+  isVeg           Boolean?
+  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem        MenuItem? @relation(fields: [menuItemId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+  @@map("order_items")
+}
+
+model Payment {
+  id                Int           @id @default(autoincrement())
+  orderId           Int
+  provider          String        @default("razorpay")
+  status            PaymentStatus @default(pending)
+  amountPaise       Int
+  currency          String        @default("INR")
+  providerOrderId   String?       @unique
+  providerPaymentId String?       @unique
+  providerSignature String?
+  gatewayResponse   Json?
+  failureReason     String?
+  paidAt            DateTime?
+  refundedAt        DateTime?
+  order             Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@index([orderId, status])
+  @@map("payments")
+}
+
+model Review {
+  id            Int          @id @default(autoincrement())
+  name          String
+  rating        Int
+  text          String
+  reviewDate    DateTime     @default(now())
+  source        ReviewSource @default(manual)
+  googleReviewUrl String?
+  isVisible     Boolean      @default(true)
+  isDeleted     Boolean      @default(false)
+  sortOrder     Int          @default(0)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([isVisible, isDeleted, reviewDate])
+  @@map("reviews")
+}
+
+model GalleryItem {
+  id           Int       @id @default(autoincrement())
+  title        String?
+  altText      String?
+  url          String
+  publicId     String?
+  mediaType    MediaType @default(image)
+  category     String    @default("food")
+  sortOrder    Int       @default(0)
+  isVisible    Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([isVisible, category, sortOrder])
+  @@map("gallery")
+}
+
+model Offer {
+  id          Int         @id @default(autoincrement())
+  title       String
+  slug        String      @unique
+  description String
+  imageUrl    String?
+  imagePublicId String?
+  ctaLabel    String?
+  ctaHref     String?
+  startDate   DateTime?
+  endDate     DateTime?
+  status      OfferStatus @default(draft)
+  isFeatured  Boolean     @default(false)
+  sortOrder   Int         @default(0)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([status, startDate, endDate])
+  @@map("offers")
+}
+
+model PromoCode {
+  id              Int          @id @default(autoincrement())
+  code            String       @unique
+  title           String?
+  description     String?
+  discountType    DiscountType
+  discountValue   Decimal      @db.Decimal(10, 2)
+  minOrderPaise   Int          @default(0)
+  maxDiscountPaise Int?
+  maxUses         Int?
+  usedCount       Int          @default(0)
+  isActive        Boolean      @default(true)
+  startDate       DateTime?
+  endDate         DateTime?
+  orders          Order[]
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([isActive, startDate, endDate])
+  @@map("promo_codes")
+}
+
+model ContactInquiry {
+  id          Int           @id @default(autoincrement())
+  name        String
+  phone       String
+  email       String
+  message     String
+  status      InquiryStatus @default(new)
+  contactedAt DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([status, createdAt])
+  @@map("contact_inquiries")
+}
+
+model FranchiseInquiry {
+  id          Int           @id @default(autoincrement())
+  name        String
+  city        String
+  phone       String
+  email       String
+  budget      String
+  message     String?
+  status      InquiryStatus @default(new)
+  contactedAt DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([status, createdAt])
+  @@map("franchise_inquiries")
+}
+
+model CateringInquiry {
+  id          Int           @id @default(autoincrement())
+  name        String
+  eventType   String
+  eventDate   DateTime
+  guestCount  Int
+  phone       String
+  email       String?
+  message     String?
+  status      InquiryStatus @default(new)
+  contactedAt DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([status, eventDate, createdAt])
+  @@map("catering_inquiries")
+}
+
+model SiteSetting {
+  id                     Int          @id @default(autoincrement())
+  key                    String       @unique @default("primary")
+  restaurantName         String
+  tagline                String?
+  restaurantDescription  String?
+  logoUrl                String?
+  heroMedia              Json?
+  primaryCtaLabel        String?
+  primaryCtaHref         String?
+  secondaryCtaLabel      String?
+  secondaryCtaHref       String?
+  addressText            String?
+  mapEmbedUrl            String?
+  mapLink                String?
+  phone                  String?
+  email                  String?
+  hoursText              String?
+  whatsappNumber         String?
+  floatingWhatsappEnabled Boolean     @default(true)
+  cuisineType            String?
+  city                   String?
+  areaKeywords           String[]
+  metaTitle              String?
+  metaDescription        String?
+  metaKeywords           String[]
+  googleReviewUrl        String?
+  deliveryFeePaise       Int          @default(0)
+  freeDeliveryThresholdPaise Int      @default(0)
+  orderTaxPercent        Decimal      @default(5) @db.Decimal(5, 2)
+  currency               String       @default("INR")
+  socialLinks            SocialLink[]
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+
+  @@map("site_settings")
+}
+
+model SocialLink {
+  id            Int            @id @default(autoincrement())
+  siteSettingId Int
+  platform      SocialPlatform
+  label         String
+  url           String
+  isActive      Boolean        @default(true)
+  sortOrder     Int            @default(0)
+  siteSetting   SiteSetting    @relation(fields: [siteSettingId], references: [id], onDelete: Cascade)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([siteSettingId, isActive, sortOrder])
+  @@map("social_links")
+}
+
+model OtpRequest {
+  id         Int       @id @default(autoincrement())
+  phone      String
+  codeHash   String
+  status     OtpStatus @default(pending)
+  attempts   Int       @default(0)
+  expiresAt  DateTime
+  verifiedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([phone, status, expiresAt])
+  @@map("otp_requests")
+}
