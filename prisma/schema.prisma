@@ -334,15 +334,18 @@ model PromoCode {
 model ContactInquiry {
   id          Int           @id @default(autoincrement())
   name        String
-  phone       String
+  phone       String?
   email       String
+  subject     String        @default("General inquiry")
   message     String
   status      InquiryStatus @default(new)
   contactedAt DateTime?
+  deletedAt   DateTime?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
   @@index([status, createdAt])
+  @@index([deletedAt, status, createdAt])
   @@map("contact_inquiries")
 }
 
@@ -356,10 +359,12 @@ model FranchiseInquiry {
   message     String?
   status      InquiryStatus @default(new)
   contactedAt DateTime?
+  deletedAt   DateTime?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
   @@index([status, createdAt])
+  @@index([deletedAt, status, createdAt])
   @@map("franchise_inquiries")
 }
 
@@ -374,11 +379,27 @@ model CateringInquiry {
   message     String?
   status      InquiryStatus @default(new)
   contactedAt DateTime?
+  deletedAt   DateTime?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
   @@index([status, eventDate, createdAt])
+  @@index([deletedAt, status, createdAt])
   @@map("catering_inquiries")
+}
+
+model AdminAuditLog {
+  id         Int      @id @default(autoincrement())
+  adminId    Int?
+  action     String
+  targetId   String
+  targetType String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([action, targetType, createdAt])
+  @@index([adminId, createdAt])
+  @@map("admin_audit_logs")
 }
 
 model SiteSetting {

@@ -18,6 +18,7 @@ export const signupSchema = {
       password: passwordSchema,
       confirmPassword: z.string().min(1),
     })
+    .strip()
     .refine((data) => data.password === data.confirmPassword, {
       path: ["confirmPassword"],
       message: "Passwords do not match",
@@ -28,13 +29,13 @@ export const loginSchema = {
   body: z.object({
     email: emailSchema,
     password: passwordSchema,
-  }),
+  }).strip(),
 };
 
 export const googleLoginSchema = {
   body: z.object({
     idToken: z.string().trim().min(10, "Google ID token is required"),
-  }),
+  }).strip(),
 };
 
 export const createUserAddressSchema = {
@@ -49,7 +50,7 @@ export const createUserAddressSchema = {
     state: optionalTrimmedString,
     postalCode: optionalTrimmedString,
     isDefault: booleanishSchema.optional(),
-  }),
+  }).strip(),
 };
 
 export const updateUserAddressSchema = {
@@ -67,6 +68,7 @@ export const updateUserAddressSchema = {
       postalCode: optionalTrimmedString,
       isDefault: booleanishSchema.optional(),
     })
+    .strip()
     .refine((payload) => Object.keys(payload).length > 0, {
       message: "At least one address field is required",
     }),

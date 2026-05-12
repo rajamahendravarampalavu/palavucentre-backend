@@ -41,7 +41,7 @@ export function createApp() {
       },
       autoLogging: {
         ignore(req) {
-          return req.url === "/" || req.url === "/api/health" || req.url.startsWith("/uploads/");
+          return req.url === "/" || req.url === "/health" || req.url === "/api/health" || req.url.startsWith("/uploads/");
         },
       },
       customLogLevel(req, res, error) {
@@ -81,6 +81,32 @@ export function createApp() {
   app.use(cookieParser());
   app.use(securityHeaders);
   app.use(sanitizeResponses);
+
+  const healthHandler = async (_req, res) => {
+    const body = {
+      status: "ok",
+      db: "connected",
+      uptime: process.uptime(),
+      memoryUsedMB: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+      timestamp: Date.now(),
+      environment: env.NODE_ENV,
+    };
+
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+      res.json(body);
+    } catch {
+      res.status(503).json({
+        ...body,
+        status: "degraded",
+        db: "error",
+      });
+    }
+  };
+
+  app.get("/health", healthHandler);
+  app.get("/api/health", healthHandler);
+
   app.use(apiAbuseProtection);
   app.use(
     "/uploads",
@@ -94,15 +120,6 @@ export function createApp() {
       success: true,
       message: "RajaMahendravaram PalavuCentre backend is running",
     });
-  });
-
-  app.get("/health", async (_req, res) => {
-    try {
-      await prisma.$queryRaw`SELECT 1`;
-      res.json({ success: true, db: "connected", uptime: process.uptime() });
-    } catch {
-      res.status(503).json({ success: false, db: "disconnected" });
-    }
   });
 
   app.use(doubleCsrfProtection);

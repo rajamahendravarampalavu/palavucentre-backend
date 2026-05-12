@@ -8,14 +8,9 @@ function buildLimiter({ windowMs, max, message, skipSuccessfulRequests = false }
     skipSuccessfulRequests,
     standardHeaders: true,
     legacyHeaders: false,
-    handler: (req, res) => {
-      const resetMs = req.rateLimit?.resetTime ? Number(req.rateLimit.resetTime) - Date.now() : windowMs;
-      const retryAfter = Math.max(1, Math.ceil(resetMs / 1000));
-
+    handler: (_req, res) => {
       res.status(StatusCodes.TOO_MANY_REQUESTS).json({
         success: false,
-        error: "Too many requests",
-        retryAfter,
         message,
       });
     },
@@ -58,4 +53,17 @@ export const publicFormRateLimiter = buildLimiter({
   windowMs: 60 * 60 * 1000,
   max: 20,
   message: "Too many form submissions from this IP. Please try again later.",
+});
+
+export const inquiryRateLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 3,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (_req, res) => {
+    res.status(StatusCodes.TOO_MANY_REQUESTS).json({
+      success: false,
+      message: "Too many inquiries. Please try again later.",
+    });
+  },
 });

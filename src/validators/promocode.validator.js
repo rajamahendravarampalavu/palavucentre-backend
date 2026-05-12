@@ -26,19 +26,19 @@ const promoPayloadSchema = z.object({
   isActive: booleanishSchema.optional(),
   startDate: promoDateSchema,
   endDate: promoDateSchema,
-});
+}).strip();
 
 export const applyPromoCodeSchema = {
   body: z.object({
     code: promoCodeValueSchema,
     subTotal: z.coerce.number().nonnegative(),
-  }),
+  }).strip(),
 };
 
 export const adminPromoCodesQuerySchema = {
   query: paginationQuerySchema.extend({
     isActive: booleanishSchema.optional(),
-  }),
+  }).strip(),
 };
 
 export const createPromoCodeSchema = {
@@ -47,9 +47,12 @@ export const createPromoCodeSchema = {
 
 export const updatePromoCodeSchema = {
   params: idParamSchema,
-  body: promoPayloadSchema.partial().refine((payload) => Object.keys(payload).length > 0, {
-    message: "At least one promo code field is required",
-  }),
+  body: promoPayloadSchema
+    .partial()
+    .strip()
+    .refine((payload) => Object.keys(payload).length > 0, {
+      message: "At least one promo code field is required",
+    }),
 };
 
 export const promoCodeIdParamSchema = {

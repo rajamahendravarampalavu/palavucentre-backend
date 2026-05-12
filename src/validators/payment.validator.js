@@ -15,7 +15,7 @@ export const createRazorpayOrderSchema = {
     },
     z.object({
       orderNumber: z.string().trim().min(4).max(40),
-    }),
+    }).strip(),
   ),
 };
 
@@ -41,6 +41,6 @@ export const verifyRazorpayPaymentSchema = {
       razorpayPaymentId: z.string().trim().min(5),
       razorpaySignature: z.string().trim().min(10),
       payload: z.unknown().optional(),
-    }),
+    }).strip(),
   ),
 };

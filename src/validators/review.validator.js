@@ -5,14 +5,14 @@ import { booleanishSchema, idParamSchema, optionalTrimmedString, optionalUrlSche
 export const publicReviewsQuerySchema = {
   query: z.object({
     visible: booleanishSchema.optional(),
-  }),
+  }).strip(),
 };
 
 export const adminReviewsQuerySchema = {
   query: paginationQuerySchema.extend({
     visible: booleanishSchema.optional(),
     source: z.enum(["manual", "google", "internal"]).optional(),
-  }),
+  }).strip(),
 };
 
 export const createReviewSchema = {
@@ -26,7 +26,7 @@ export const createReviewSchema = {
     visible: z.boolean().optional(),
     isVisible: z.boolean().optional(),
     sortOrder: z.coerce.number().int().min(0).default(0).optional(),
-  }),
+  }).strip(),
 };
 
 export const createPublicReviewSchema = {
@@ -34,7 +34,7 @@ export const createPublicReviewSchema = {
     name: z.string().trim().min(2).max(80),
     rating: z.coerce.number().int().min(1).max(5),
     text: z.string().trim().min(5).max(500),
-  }),
+  }).strip(),
 };
 
 export const updateReviewSchema = {
@@ -49,7 +49,7 @@ export const updateReviewSchema = {
     visible: z.boolean().optional(),
     isVisible: z.boolean().optional(),
     sortOrder: z.coerce.number().int().min(0).optional(),
-  }),
+  }).strip(),
 };
 
 export const reviewIdParamSchema = {

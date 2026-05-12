@@ -13,14 +13,14 @@ export const publicGalleryQuerySchema = {
   query: z.object({
     category: optionalTrimmedString,
     visible: booleanishSchema.optional(),
-  }),
+  }).strip(),
 };
 
 export const adminGalleryQuerySchema = {
   query: paginationQuerySchema.extend({
     category: optionalTrimmedString,
     visible: booleanishSchema.optional(),
-  }),
+  }).strip(),
 };
 
 export const createGalleryItemSchema = {
@@ -34,7 +34,7 @@ export const createGalleryItemSchema = {
     sortOrder: z.coerce.number().int().min(0).default(0).optional(),
     visible: z.boolean().optional(),
     isVisible: z.boolean().optional(),
-  }),
+  }).strip(),
 };
 
 export const updateGalleryItemSchema = {
@@ -49,7 +49,7 @@ export const updateGalleryItemSchema = {
     sortOrder: z.coerce.number().int().min(0).optional(),
     visible: z.boolean().optional(),
     isVisible: z.boolean().optional(),
-  }),
+  }).strip(),
 };
 
 export const galleryItemIdParamSchema = {

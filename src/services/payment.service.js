@@ -10,6 +10,7 @@ import { serializePublicRazorpayOrder } from "../serializers/payment.public.seri
 import { ApiError } from "../utils/ApiError.js";
 import { paiseToRupees } from "../utils/amounts.js";
 import { serializePayment } from "../utils/serializers.js";
+import { alertPaymentFailed } from "./alertService.js";
 
 const paymentOrderIncludes = {
   user: true,
@@ -359,6 +360,8 @@ export async function handleRazorpayWebhook({ body, rawBody, signature }) {
     };
   }
 
+  const failureReason = getWebhookFailureReason(paymentEntity);
+
   await prisma.$transaction(async (tx) => {
     await tx.payment.update({
       where: { id: payment.id },
@@ -366,7 +369,7 @@ export async function handleRazorpayWebhook({ body, rawBody, signature }) {
         status: "failed",
         providerPaymentId,
         gatewayResponse: body,
-        failureReason: getWebhookFailureReason(paymentEntity),
+        failureReason,
       },
     });
 
@@ -377,6 +380,10 @@ export async function handleRazorpayWebhook({ body, rawBody, signature }) {
       },
     });
   });
+
+  alertPaymentFailed(payment.order?.orderNumber || String(payment.orderId), paiseToRupees(payment.amountPaise), failureReason).catch(
+    () => null,
+  );
 
   return {
     event: eventName,

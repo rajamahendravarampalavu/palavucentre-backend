@@ -1,21 +1,14 @@
 import { env } from "./env.js";
 
-function isLocalDevelopmentOrigin(origin) {
-  if (env.isProduction || !origin) {
-    return false;
-  }
+const productionCorsOrigins = ["https://rjmpalavucentre.com", "https://admin.rjmpalavucentre.com"];
 
-  try {
-    const url = new URL(origin);
-    return ["localhost", "127.0.0.1", "::1"].includes(url.hostname);
-  } catch {
-    return false;
-  }
-}
+export const activeCorsOrigins = env.isProduction
+  ? productionCorsOrigins
+  : [...productionCorsOrigins, "http://localhost:5173"];
 
 export const corsOptions = {
   origin(origin, callback) {
-    if (!origin || env.corsOrigins.includes(origin) || isLocalDevelopmentOrigin(origin)) {
+    if (!origin || activeCorsOrigins.includes(origin)) {
       callback(null, true);
       return;
     }

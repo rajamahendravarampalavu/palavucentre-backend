@@ -1,14 +1,36 @@
 import { PrismaClient } from "@prisma/client";
 
 import { env } from "./env.js";
+import { alertDatabaseSlow } from "../services/alertService.js";
 
 const globalForPrisma = globalThis;
 
-export const prisma =
-  globalForPrisma.prisma ||
-  new PrismaClient({
+function createPrismaClient() {
+  const baseClient = new PrismaClient({
     log: ["error"],
   });
+
+  return baseClient.$extends({
+    query: {
+      $allModels: {
+        async $allOperations({ model, operation, args, query }) {
+          const startedAt = Date.now();
+
+          try {
+            return await query(args);
+          } finally {
+            const queryMs = Date.now() - startedAt;
+            alertDatabaseSlow(queryMs, `${model}.${operation}`).catch(() => null);
+          }
+        },
+      },
+    },
+  });
+}
+
+export const prisma =
+  globalForPrisma.prisma ||
+  createPrismaClient();
 
 if (!env.isProduction) {
   globalForPrisma.prisma = prisma;

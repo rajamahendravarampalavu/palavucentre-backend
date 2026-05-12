@@ -3,7 +3,9 @@ import { StatusCodes } from "http-status-codes";
 import {
   createCateringInquiry,
   createContactInquiry,
+  bulkDeleteInquiries,
   createFranchiseInquiry,
+  deleteInquiry,
   listInquiries,
   updateInquiryStatus,
 } from "../services/inquiry.service.js";
@@ -53,6 +55,27 @@ export async function updateInquiryStatusHandler(req, res) {
   res.status(StatusCodes.OK).json({
     success: true,
     message: "Inquiry status updated",
+    data,
+  });
+}
+
+export async function deleteInquiryHandler(req, res) {
+  await deleteInquiry(req.params.id, { adminId: req.admin?.id });
+
+  res.status(StatusCodes.OK).json({
+    success: true,
+    data: {
+      success: true,
+    },
+  });
+}
+
+export async function bulkDeleteInquiriesHandler(req, res) {
+  const data = await bulkDeleteInquiries(req.body.ids, { adminId: req.admin?.id });
+
+  res.status(StatusCodes.OK).json({
+    success: true,
+    deleted: data.deleted,
     data,
   });
 }

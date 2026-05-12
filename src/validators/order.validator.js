@@ -10,6 +10,7 @@ const orderItemSchema = z
     price: z.coerce.number().positive().optional(),
     quantity: z.coerce.number().int().positive().max(20),
   })
+  .strip()
   .superRefine((item, ctx) => {
     if (!item.id && !item.menuItemId) {
       ctx.addIssue({
@@ -64,7 +65,7 @@ export const createOrderSchema = {
           city: optionalTrimmedString,
           state: optionalTrimmedString,
           postalCode: optionalTrimmedString,
-        }),
+        }).strip(),
       items: z.array(orderItemSchema).min(1),
       pricing: z
         .object({
@@ -72,6 +73,7 @@ export const createOrderSchema = {
           taxPercent: z.coerce.number().min(0).max(100).optional(),
           grandTotal: z.coerce.number().nonnegative().optional(),
         })
+        .strip()
         .optional(),
       paymentMethod: z.preprocess(
         (value) => (typeof value === "string" ? value.toLowerCase() : value),
@@ -82,7 +84,7 @@ export const createOrderSchema = {
       promoCode: optionalTrimmedString,
       userAddressId: z.coerce.number().int().positive().optional(),
       storeLocation: z.enum(["kukatpally", "bachupally"]),
-    }),
+    }).strip(),
   ),
 };
 
@@ -90,7 +92,10 @@ export const adminOrdersQuerySchema = {
   query: paginationQuerySchema.extend({
     orderStatus: z.enum(["pending", "accepted", "preparing", "ready", "delivered", "cancelled"]).optional(),
     paymentStatus: z.enum(["unpaid", "pending", "paid", "failed", "refunded"]).optional(),
-  }),
+    datePreset: z.enum(["today", "yesterday", "last7", "last30", "thisMonth", "lastMonth"]).optional(),
+    dateFrom: z.string().datetime({ offset: true }).optional(),
+    dateTo: z.string().datetime({ offset: true }).optional(),
+  }).strip(),
 };
 
 export const orderIdParamSchema = {
@@ -103,5 +108,5 @@ export const updateOrderSchema = {
     orderStatus: z.enum(["pending", "accepted", "preparing", "ready", "delivered", "cancelled"]).optional(),
     paymentStatus: z.enum(["unpaid", "pending", "paid", "failed", "refunded"]).optional(),
     notes: optionalTrimmedString,
-  }),
+  }).strip(),
 };

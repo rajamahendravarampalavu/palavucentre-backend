@@ -44,18 +44,18 @@ export const phoneSchema = z.preprocess(
   z.string().regex(/^\d{10}$/, "Phone number must be 10 digits"),
 );
 
-export const emailSchema = z.string().trim().email("A valid email address is required");
+export const emailSchema = z.string().trim().email("Please enter a valid email address");
 export const optionalEmailSchema = z.preprocess(emptyStringToUndefined, emailSchema.optional());
 
 export const idParamSchema = z.object({
   id: z.coerce.number().int().positive(),
-});
+}).strip();
 
 export const paginationQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1).optional(),
   limit: z.coerce.number().int().positive().max(100).default(20).optional(),
   search: optionalTrimmedString,
-});
+}).strip();
 
 export const booleanishSchema = z.preprocess((value) => {
   if (typeof value === "string") {

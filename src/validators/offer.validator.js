@@ -5,13 +5,13 @@ import { booleanishSchema, idParamSchema, optionalAssetUrlSchema, optionalTrimme
 export const publicOffersQuerySchema = {
   query: z.object({
     active: booleanishSchema.optional(),
-  }),
+  }).strip(),
 };
 
 export const adminOffersQuerySchema = {
   query: paginationQuerySchema.extend({
     status: z.enum(["draft", "scheduled", "active", "expired"]).optional(),
-  }),
+  }).strip(),
 };
 
 export const createOfferSchema = {
@@ -28,7 +28,7 @@ export const createOfferSchema = {
     status: z.enum(["draft", "scheduled", "active", "expired"]).default("draft").optional(),
     isFeatured: z.boolean().default(false).optional(),
     sortOrder: z.coerce.number().int().min(0).default(0).optional(),
-  }),
+  }).strip(),
 };
 
 export const updateOfferSchema = {
@@ -46,7 +46,7 @@ export const updateOfferSchema = {
     status: z.enum(["draft", "scheduled", "active", "expired"]).optional(),
     isFeatured: z.boolean().optional(),
     sortOrder: z.coerce.number().int().min(0).optional(),
-  }),
+  }).strip(),
 };
 
 export const offerIdParamSchema = {

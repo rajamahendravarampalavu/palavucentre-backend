@@ -17,6 +17,7 @@ import { publicCateringRoutes } from "./public/catering.routes.js";
 import { publicContactRoutes } from "./public/contact.routes.js";
 import { publicFranchiseRoutes } from "./public/franchise.routes.js";
 import { publicGalleryRoutes } from "./public/gallery.routes.js";
+import { publicInquiryRoutes } from "./public/inquiries.routes.js";
 import { publicMenuRoutes } from "./public/menu.routes.js";
 import { publicOfferRoutes } from "./public/offers.routes.js";
 import { publicOrderRoutes } from "./public/orders.routes.js";
@@ -29,15 +30,11 @@ import { globalApiLimiter } from "../middleware/rate-limit.middleware.js";
 
 const router = Router();
 
+router.use("/inquiries", publicInquiryRoutes);
+
 // Global rate limit: 120 requests/minute per IP
 router.use(globalApiLimiter);
 
-router.get("/health", (_req, res) => {
-  res.json({
-    success: true,
-    message: "ok",
-  });
-});
 router.get("/csrf-token", getCsrfToken);
 
 router.use("/menu", publicMenuRoutes);

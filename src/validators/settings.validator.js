@@ -7,7 +7,7 @@ const heroMediaItemSchema = z.object({
   type: z.enum(["image", "video"]),
   url: assetUrlSchema,
   poster: optionalAssetUrlSchema,
-});
+}).strip();
 
 const socialLinkSchema = z.object({
   id: z.coerce.number().int().positive().optional(),
@@ -16,7 +16,7 @@ const socialLinkSchema = z.object({
   url: z.string().trim().url(),
   isActive: z.boolean().default(true).optional(),
   sortOrder: z.coerce.number().int().min(0).default(0).optional(),
-});
+}).strip();
 
 export const updateSiteSettingsSchema = {
   body: z.object({
@@ -58,6 +58,7 @@ export const updateSiteSettingsSchema = {
     currency: z.string().trim().min(3).max(5).optional(),
     socialLinks: z.array(socialLinkSchema).optional(),
   })
+  .strip()
   .transform((payload) => {
     const nextPayload = { ...payload };
 

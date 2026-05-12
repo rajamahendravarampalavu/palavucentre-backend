@@ -7,16 +7,21 @@ import { ApiError } from "../utils/ApiError.js";
 
 export async function requireAdminAuth(req, _res, next) {
   try {
-    const token = req.cookies?.[env.COOKIE_NAME];
+    const token = req.cookies?.[env.COOKIE_NAME] || req.cookies?.[env.USER_COOKIE_NAME];
 
     if (!token) {
       throw new ApiError(StatusCodes.UNAUTHORIZED, "Admin authentication is required");
     }
 
     const payload = jwt.verify(token, env.JWT_SECRET);
+
+    if (payload?.role !== "admin") {
+      throw new ApiError(StatusCodes.NOT_FOUND, "Not Found");
+    }
+
     const adminId = Number(payload?.sub);
 
-    if (payload?.role !== "admin" || !Number.isInteger(adminId) || adminId <= 0) {
+    if (!Number.isInteger(adminId) || adminId <= 0) {
       throw new ApiError(StatusCodes.UNAUTHORIZED, "Invalid admin session");
     }
 

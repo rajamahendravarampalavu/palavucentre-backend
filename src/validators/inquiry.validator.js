@@ -9,13 +9,26 @@ import {
   phoneSchema,
 } from "./common.js";
 
+const optionalPhoneSchema = z.preprocess((value) => {
+  if (typeof value !== "string") {
+    return value;
+  }
+
+  return value.trim() === "" ? undefined : value;
+}, phoneSchema.optional());
+
 export const contactInquirySchema = {
   body: z.object({
-    name: z.string().trim().min(2).max(80),
-    phone: phoneSchema,
+    name: z.string().trim().min(2, "Name must be at least 2 characters").max(100, "Name must be at most 100 characters"),
+    phone: optionalPhoneSchema,
     email: emailSchema,
-    message: z.string().trim().min(5).max(2000),
-  }),
+    subject: z.string().trim().min(3, "Subject must be at least 3 characters").max(200, "Subject must be at most 200 characters"),
+    message: z
+      .string()
+      .trim()
+      .min(10, "Message must be at least 10 characters")
+      .max(2000, "Message must be at most 2000 characters"),
+  }).strip(),
 };
 
 export const franchiseInquirySchema = {
@@ -26,7 +39,7 @@ export const franchiseInquirySchema = {
     email: emailSchema,
     budget: z.string().trim().min(1).max(60),
     message: optionalTrimmedString,
-  }),
+  }).strip(),
 };
 
 export const cateringInquirySchema = {
@@ -42,6 +55,7 @@ export const cateringInquirySchema = {
       email: optionalEmailSchema,
       message: optionalTrimmedString,
     })
+    .strip()
     .superRefine((data, ctx) => {
       if (!data.eventDate && !data.date) {
         ctx.addIssue({
@@ -65,7 +79,7 @@ export const listInquiriesQuerySchema = {
   query: paginationQuerySchema.extend({
     type: z.enum(["contact", "franchise", "catering"]).optional(),
     status: z.enum(["new", "contacted", "closed"]).optional(),
-  }),
+  }).strip(),
 };
 
 export const inquiryIdParamSchema = {
@@ -76,8 +90,20 @@ export const updateInquiryStatusSchema = {
   params: z.object({
     type: z.enum(["contact", "franchise", "catering"]),
     id: z.coerce.number().int().positive(),
-  }),
+  }).strip(),
   body: z.object({
     status: z.enum(["new", "contacted", "closed"]),
-  }),
+  }).strip(),
+};
+
+export const deleteInquirySchema = {
+  params: z.object({
+    id: z.string().trim().min(1),
+  }).strip(),
+};
+
+export const bulkDeleteInquirySchema = {
+  body: z.object({
+    ids: z.array(z.string().trim().min(1)).min(1),
+  }).strip(),
 };

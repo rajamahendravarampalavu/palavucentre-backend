@@ -20,6 +20,7 @@ const {
   return {
     prismaConfig: {
       prisma: {
+        $queryRaw: vi.fn(),
         admin: {
           findUnique: vi.fn(),
         },
@@ -139,6 +140,7 @@ function validOrderBody() {
 }
 
 beforeEach(() => {
+  prismaConfig.prisma.$queryRaw.mockReset().mockResolvedValue([{ '?column?': 1 }])
   prismaConfig.prisma.admin.findUnique.mockReset()
   prismaConfig.prisma.user.findUnique.mockReset().mockResolvedValue({
     id: 7,
@@ -200,7 +202,8 @@ describe('public backend routes', () => {
     const response = await request(app).get('/api/health')
 
     expect(response.status).toBe(200)
-    expect(response.body.success).toBe(true)
+    expect(response.body.status).toBe('ok')
+    expect(response.body.db).toBe('connected')
   })
 
   it('returns the public menu payload', async () => {
@@ -240,7 +243,7 @@ describe('public backend routes', () => {
       confirmPassword: '456',
     })
 
-    expect(response.status).toBe(400)
+    expect(response.status).toBe(422)
     expect(response.body.success).toBe(false)
     expect(response.body.message).toBe('Validation failed')
   })
@@ -251,7 +254,7 @@ describe('public backend routes', () => {
       password: '',
     })
 
-    expect(response.status).toBe(400)
+    expect(response.status).toBe(422)
     expect(response.body.success).toBe(false)
     expect(response.body.message).toBe('Validation failed')
   })
@@ -282,7 +285,7 @@ describe('public backend routes', () => {
       items: [],
     }, [buildUserCookie()])
 
-    expect(response.status).toBe(400)
+    expect(response.status).toBe(422)
     expect(response.body.success).toBe(false)
     expect(response.body.message).toBe('Validation failed')
     expect(orderService.createOrder).not.toHaveBeenCalled()
@@ -349,7 +352,7 @@ describe('public backend routes', () => {
   it('validates authenticated create razorpay order input', async () => {
     const response = await postWithCsrf('/api/payments/razorpay/order', {}, [buildUserCookie()])
 
-    expect(response.status).toBe(400)
+    expect(response.status).toBe(422)
     expect(paymentService.createRazorpayOrderForVerifiedOrder).not.toHaveBeenCalled()
     expectNoPublicOrderSecrets(response.body)
   })
@@ -357,7 +360,7 @@ describe('public backend routes', () => {
   it('rejects guessed numeric order id payment creation', async () => {
     const response = await postWithCsrf('/api/payments/razorpay/order', { orderId: 5 }, [buildUserCookie()])
 
-    expect(response.status).toBe(400)
+    expect(response.status).toBe(422)
     expect(paymentService.createRazorpayOrderForVerifiedOrder).not.toHaveBeenCalled()
   })
 
@@ -383,7 +386,7 @@ describe('public backend routes', () => {
       orderId: 5,
     }, [buildUserCookie()])
 
-    expect(response.status).toBe(400)
+    expect(response.status).toBe(422)
     expect(paymentService.verifyRazorpayPayment).not.toHaveBeenCalled()
   })
 
@@ -422,21 +425,30 @@ describe('public backend routes', () => {
     expectNoPublicOrderSecrets(response.body)
   })
 
-  it('rejects a user token on admin routes', async () => {
+  it('hides admin routes from authenticated non-admin users', async () => {
     const response = await request(app)
       .get('/api/admin/me')
       .set('Cookie', buildAdminCookie({ sub: '7', email: 'user@example.com', role: 'user' }))
 
-    expect(response.status).toBe(401)
+    expect(response.status).toBe(404)
     expect(prismaConfig.prisma.admin.findUnique).not.toHaveBeenCalled()
   })
 
-  it('rejects admin route tokens with a missing role', async () => {
+  it('hides admin routes from regular user session cookies', async () => {
+    const response = await request(app)
+      .get('/api/admin/me')
+      .set('Cookie', buildUserCookie())
+
+    expect(response.status).toBe(404)
+    expect(prismaConfig.prisma.admin.findUnique).not.toHaveBeenCalled()
+  })
+
+  it('hides admin routes from tokens with a missing admin role', async () => {
     const response = await request(app)
       .get('/api/admin/me')
       .set('Cookie', buildAdminCookie({ sub: '1', email: 'admin@example.com' }))
 
-    expect(response.status).toBe(401)
+    expect(response.status).toBe(404)
     expect(prismaConfig.prisma.admin.findUnique).not.toHaveBeenCalled()
   })
 

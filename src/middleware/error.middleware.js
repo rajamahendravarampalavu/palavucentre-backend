@@ -3,27 +3,38 @@ import { StatusCodes } from "http-status-codes";
 import { ZodError } from "zod";
 
 import { env } from "../config/env.js";
+import { alertServerError } from "../services/alertService.js";
 import { ApiError } from "../utils/ApiError.js";
+
+function getFieldErrors(error) {
+  const flattened = error.flatten();
+
+  return Object.fromEntries(
+    Object.entries(flattened.fieldErrors)
+      .map(([field, messages]) => [field, messages?.[0]])
+      .filter(([, message]) => Boolean(message)),
+  );
+}
 
 export function errorHandler(error, req, res, _next) {
   let statusCode = StatusCodes.INTERNAL_SERVER_ERROR;
   let message = "Something went wrong";
-  let details = null;
+  let errors = null;
   const errorMessage = String(error?.message || "");
 
   if (error instanceof ApiError) {
     statusCode = error.statusCode;
     message = error.message;
-    details = error.details;
+    errors = error.details || null;
   } else if (error instanceof ZodError) {
-    statusCode = StatusCodes.BAD_REQUEST;
+    statusCode = StatusCodes.UNPROCESSABLE_ENTITY;
     message = "Validation failed";
-    details = error.flatten();
+    errors = getFieldErrors(error);
   } else if (error instanceof Prisma.PrismaClientKnownRequestError) {
     if (error.code === "P2002") {
       statusCode = StatusCodes.CONFLICT;
       message = "A record with the same unique value already exists";
-      details = error.meta;
+      errors = error.meta;
     } else if (error.code === "P2025") {
       statusCode = StatusCodes.NOT_FOUND;
       message = "Requested record was not found";
@@ -31,7 +42,7 @@ export function errorHandler(error, req, res, _next) {
   } else if (error instanceof Prisma.PrismaClientInitializationError) {
     statusCode = StatusCodes.SERVICE_UNAVAILABLE;
     message = "Database is unavailable. Check DATABASE_URL and make sure the database server is reachable.";
-    details = env.isProduction
+    errors = env.isProduction
       ? null
       : {
           prismaMessage: error.message,
@@ -49,31 +60,49 @@ export function errorHandler(error, req, res, _next) {
   ) {
     statusCode = StatusCodes.SERVICE_UNAVAILABLE;
     message = "Database is unavailable. Check DATABASE_URL and make sure the database server is reachable.";
-    details = env.isProduction
+    errors = env.isProduction
       ? null
       : {
           prismaMessage: errorMessage,
         };
   }
 
-  if (env.isProduction && statusCode >= StatusCodes.INTERNAL_SERVER_ERROR) {
-    details = null;
+  if (statusCode >= StatusCodes.INTERNAL_SERVER_ERROR) {
+    alertServerError(req.originalUrl || req.url || "unknown", error, req.user?.id || req.admin?.id).catch((alertError) => {
+      req.log?.warn({ err: alertError }, "Could not send server error alert");
+    });
   }
 
   req.log?.error(
     {
       err: error,
       statusCode,
-      details,
+      errors,
     },
-    message,
+    "Request failed",
   );
+
+  if (env.isProduction) {
+    res.status(statusCode).json({
+      success: false,
+      message: "Something went wrong",
+    });
+    return;
+  }
 
   res.status(statusCode).json({
     success: false,
-    error: message,
     message,
-    details,
-    ...(env.NODE_ENV === "development" ? { stack: error.stack } : {}),
+    ...(errors ? { errors } : {}),
+    ...(env.NODE_ENV === "development"
+      ? {
+          details: {
+            name: error?.name,
+            message: error?.message,
+            code: error?.code,
+          },
+          stack: error?.stack,
+        }
+      : {}),
   });
 }

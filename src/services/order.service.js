@@ -3,7 +3,7 @@ import { StatusCodes } from "http-status-codes";
 import { prisma, withReadDbRetry } from "../config/prisma.js";
 import { isRazorpayConfigured } from "../config/razorpay.js";
 import { ApiError } from "../utils/ApiError.js";
-import { calculateTotals } from "../utils/amounts.js";
+import { calculateTotals, paiseToRupees } from "../utils/amounts.js";
 import { generateOrderNumber } from "../utils/order-number.js";
 import { getPagination } from "../utils/pagination.js";
 import { serializeOrder } from "../utils/serializers.js";
@@ -23,6 +23,61 @@ const orderIncludes = {
     orderBy: { createdAt: "desc" },
   },
 };
+
+const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function startOfIstDay(date = new Date()) {
+  const istDate = new Date(date.getTime() + IST_OFFSET_MS);
+  return new Date(Date.UTC(istDate.getUTCFullYear(), istDate.getUTCMonth(), istDate.getUTCDate()) - IST_OFFSET_MS);
+}
+
+function startOfIstMonth(date = new Date()) {
+  const istDate = new Date(date.getTime() + IST_OFFSET_MS);
+  return new Date(Date.UTC(istDate.getUTCFullYear(), istDate.getUTCMonth(), 1) - IST_OFFSET_MS);
+}
+
+function resolveOrderDateRange({ datePreset, dateFrom, dateTo } = {}) {
+  if (datePreset) {
+    const now = new Date();
+    const todayStart = startOfIstDay(now);
+
+    if (datePreset === "today") {
+      return { dateFrom: todayStart, dateTo: now };
+    }
+
+    if (datePreset === "yesterday") {
+      const yesterdayStart = new Date(todayStart.getTime() - DAY_MS);
+      return { dateFrom: yesterdayStart, dateTo: new Date(todayStart.getTime() - 1) };
+    }
+
+    if (datePreset === "last7") {
+      return { dateFrom: new Date(now.getTime() - 7 * DAY_MS), dateTo: now };
+    }
+
+    if (datePreset === "last30") {
+      return { dateFrom: new Date(now.getTime() - 30 * DAY_MS), dateTo: now };
+    }
+
+    if (datePreset === "thisMonth") {
+      return { dateFrom: startOfIstMonth(now), dateTo: now };
+    }
+
+    if (datePreset === "lastMonth") {
+      const currentMonthStart = startOfIstMonth(now);
+      const previousMonthDate = new Date(currentMonthStart.getTime() - DAY_MS);
+      return {
+        dateFrom: startOfIstMonth(previousMonthDate),
+        dateTo: new Date(currentMonthStart.getTime() - 1),
+      };
+    }
+  }
+
+  return {
+    dateFrom: dateFrom ? new Date(dateFrom) : null,
+    dateTo: dateTo ? new Date(dateTo) : null,
+  };
+}
 
 async function createUniqueOrderNumber() {
   let orderNumber = generateOrderNumber();
@@ -212,11 +267,24 @@ export async function createOrder(payload, { user } = {}) {
   };
 }
 
-export async function listOrders({ orderStatus, paymentStatus, search, page, limit } = {}) {
+export async function listOrders({ orderStatus, paymentStatus, search, page, limit, datePreset, dateFrom, dateTo } = {}) {
   const { page: currentPage, limit: pageSize, skip } = getPagination({ page, limit });
+  const dateRange = resolveOrderDateRange({ datePreset, dateFrom, dateTo });
+
+  if (dateRange.dateFrom && dateRange.dateTo && dateRange.dateFrom > dateRange.dateTo) {
+    throw new ApiError(StatusCodes.UNPROCESSABLE_ENTITY, "dateFrom must be before dateTo", {
+      dateFrom: "dateFrom must be before dateTo",
+    });
+  }
+
+  const createdAt = {
+    ...(dateRange.dateFrom ? { gte: dateRange.dateFrom } : {}),
+    ...(dateRange.dateTo ? { lte: dateRange.dateTo } : {}),
+  };
   const where = {
     ...(orderStatus ? { orderStatus } : {}),
     ...(paymentStatus ? { paymentStatus } : {}),
+    ...(Object.keys(createdAt).length > 0 ? { createdAt } : {}),
     ...(search
       ? {
           OR: [
@@ -228,7 +296,7 @@ export async function listOrders({ orderStatus, paymentStatus, search, page, lim
       : {}),
   };
 
-  const [orders, total] = await Promise.all([
+  const [orders, total, revenueAggregate] = await Promise.all([
     withReadDbRetry(() =>
       prisma.order.findMany({
         where,
@@ -239,10 +307,24 @@ export async function listOrders({ orderStatus, paymentStatus, search, page, lim
       }),
     ),
     withReadDbRetry(() => prisma.order.count({ where })),
+    withReadDbRetry(() =>
+      prisma.order.aggregate({
+        where,
+        _sum: {
+          grandTotalPaise: true,
+        },
+      }),
+    ),
   ]);
+  const filteredRevenuePaise = Number(revenueAggregate._sum.grandTotalPaise || 0);
 
   return {
     items: orders.map(serializeOrder),
+    filteredCount: total,
+    filteredRevenue: paiseToRupees(filteredRevenuePaise),
+    filteredRevenuePaise,
+    dateFrom: dateRange.dateFrom ? dateRange.dateFrom.toISOString() : null,
+    dateTo: dateRange.dateTo ? dateRange.dateTo.toISOString() : null,
     pagination: {
       page: currentPage,
       limit: pageSize,

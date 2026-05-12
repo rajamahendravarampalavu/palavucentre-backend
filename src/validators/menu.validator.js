@@ -6,7 +6,7 @@ import { booleanishSchema, idParamSchema, optionalAssetUrlSchema, optionalTrimme
 export const publicMenuQuerySchema = {
   query: z.object({
     includeUnavailable: booleanishSchema.optional(),
-  }),
+  }).strip(),
 };
 
 export const createCategorySchema = {
@@ -17,7 +17,7 @@ export const createCategorySchema = {
     icon: z.enum(MENU_CATEGORY_ICON_KEYS).default(DEFAULT_MENU_CATEGORY_ICON),
     sortOrder: z.coerce.number().int().min(0).default(0).optional(),
     isActive: z.boolean().default(true).optional(),
-  }),
+  }).strip(),
 };
 
 export const updateCategorySchema = {
@@ -29,14 +29,14 @@ export const updateCategorySchema = {
     icon: z.enum(MENU_CATEGORY_ICON_KEYS).optional(),
     sortOrder: z.coerce.number().int().min(0).optional(),
     isActive: z.boolean().optional(),
-  }),
+  }).strip(),
 };
 
 export const listAdminMenuItemsQuerySchema = {
   query: paginationQuerySchema.extend({
     categoryId: z.coerce.number().int().positive().optional(),
     isAvailable: booleanishSchema.optional(),
-  }),
+  }).strip(),
 };
 
 export const createMenuItemSchema = {
@@ -53,7 +53,7 @@ export const createMenuItemSchema = {
     isBestseller: z.boolean().default(false).optional(),
     isAvailable: z.boolean().default(true).optional(),
     sortOrder: z.coerce.number().int().min(0).default(0).optional(),
-  }),
+  }).strip(),
 };
 
 export const updateMenuItemSchema = {
@@ -71,7 +71,7 @@ export const updateMenuItemSchema = {
     isBestseller: z.boolean().optional(),
     isAvailable: z.boolean().optional(),
     sortOrder: z.coerce.number().int().min(0).optional(),
-  }),
+  }).strip(),
 };
 
 export const menuEntityIdParamSchema = {
