@@ -13,6 +13,7 @@ import { assertRazorpayPaymentAmount, createRazorpayOrderForPayment } from "./pa
 import { resolvePromoCodeForOrder } from "./promocode.service.js";
 import { getOrderConfig } from "./site-settings.service.js";
 import { STORE_LOCATIONS } from "../constants/store-locations.js";
+import { sendTelegramAlert } from "./alertService.js";
 
 const orderIncludes = {
   user: true,
@@ -227,6 +228,12 @@ export async function createOrder(payload, { user } = {}) {
 
   const orderResults = await prisma.$transaction(orderOperations);
   const order = orderResults[orderResults.length - 1];
+
+  // Telegram alert for new order
+  const itemsList = order.items.map((i) => `${i.quantity}x ${i.itemName}`).join(", ");
+  sendTelegramAlert(
+    `🛒 NEW ORDER #${order.orderNumber}\n👤 ${order.customerName} | ${order.phone}\n📍 ${order.storeLocation || "No branch"}\n💰 ₹${paiseToRupees(order.grandTotalPaise)} (${order.paymentMethod})\n📦 ${itemsList}`
+  ).catch(() => null);
 
   if (payload.paymentMethod === "cod") {
     return {
