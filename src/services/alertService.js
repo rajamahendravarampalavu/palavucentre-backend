@@ -1,12 +1,16 @@
 import { exec } from "node:child_process";
+import https from "node:https";
+import { lookup } from "node:dns";
 import { promisify } from "node:util";
 
 import { env } from "../config/env.js";
 import { logger } from "../config/logger.js";
 
 const execAsync = promisify(exec);
+const lookupAsync = promisify(lookup);
 const ERROR_WINDOW_MS = 60_000;
 const serverErrorCounters = new Map();
+let resolvedTelegramIp = null;
 
 function getIstTimestamp() {
   return new Intl.DateTimeFormat("en-IN", {
@@ -30,24 +34,62 @@ export async function sendTelegramAlert(message) {
     return false;
   }
 
-  const response = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      chat_id: env.TELEGRAM_CHAT_ID,
-      text: message,
-    }),
-  });
+  try {
+    if (!resolvedTelegramIp) {
+      try {
+        const result = await lookupAsync("api.telegram.org", { family: 4 });
+        resolvedTelegramIp = result.address;
+      } catch {
+        resolvedTelegramIp = "149.154.166.110";
+      }
+    }
 
-  if (!response.ok) {
-    const body = await response.text().catch(() => "");
-    logger.warn({ status: response.status, body }, "Telegram alert failed");
+    const payload = JSON.stringify({ chat_id: env.TELEGRAM_CHAT_ID, text: message });
+
+    return await new Promise((resolve) => {
+      const req = https.request(
+        {
+          hostname: resolvedTelegramIp,
+          port: 443,
+          path: `/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`,
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Host: "api.telegram.org",
+            "Content-Length": Buffer.byteLength(payload),
+          },
+          servername: "api.telegram.org",
+          timeout: 10000,
+        },
+        (res) => {
+          let body = "";
+          res.on("data", (chunk) => { body += chunk; });
+          res.on("end", () => {
+            if (res.statusCode !== 200) {
+              logger.warn({ status: res.statusCode, body }, "Telegram alert failed");
+            }
+            resolve(res.statusCode === 200);
+          });
+        },
+      );
+
+      req.on("error", (error) => {
+        logger.warn({ err: error }, "Telegram alert request error");
+        resolve(false);
+      });
+
+      req.on("timeout", () => {
+        req.destroy();
+        resolve(false);
+      });
+
+      req.write(payload);
+      req.end();
+    });
+  } catch (error) {
+    logger.warn({ err: error }, "Telegram alert unexpected error");
     return false;
   }
-
-  return true;
 }
 
 export async function alertServerError(route, error, userId) {
