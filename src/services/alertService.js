@@ -151,7 +151,7 @@ export async function alertHighMemory() {
 }
 
 export async function alertDatabaseSlow(queryMs, queryName) {
-  if (queryMs <= 3000) {
+  if (queryMs <= 5000) {
     return false;
   }
 

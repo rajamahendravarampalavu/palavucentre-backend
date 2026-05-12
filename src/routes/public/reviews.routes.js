@@ -10,6 +10,7 @@ import {
 import { requireAdminAuth } from "../../middleware/auth.middleware.js";
 import { validate } from "../../middleware/validate.middleware.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
+import { publicCache } from "../../middleware/cache.middleware.js";
 import {
   createPublicReviewSchema,
   createReviewSchema,
@@ -20,7 +21,7 @@ import {
 
 const router = Router();
 
-router.get("/", validate(publicReviewsQuerySchema), asyncHandler(listPublicReviews));
+router.get("/", publicCache(120), validate(publicReviewsQuerySchema), asyncHandler(listPublicReviews));
 router.post("/submit", validate(createPublicReviewSchema), asyncHandler(createPublicReviewHandler));
 router.post("/", requireAdminAuth, validate(createReviewSchema), asyncHandler(createReviewHandler));
 router.patch("/:id", requireAdminAuth, validate(updateReviewSchema), asyncHandler(updateReviewHandler));
