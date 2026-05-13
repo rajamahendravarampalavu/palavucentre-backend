@@ -9,7 +9,7 @@ export function initSocket(httpServer) {
       origin: env.corsOrigins,
       credentials: true,
     },
-    path: "/ws",
+    path: "/ws/",
   });
 
   io.on("connection", (socket) => {
