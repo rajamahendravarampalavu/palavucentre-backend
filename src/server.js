@@ -1,13 +1,17 @@
+import { createServer } from "node:http";
 import cron from "node-cron";
 
 import { activeCorsOrigins } from "./config/cors.js";
 import { env } from "./config/env.js";
 import { logger } from "./config/logger.js";
 import { shutdownPrisma } from "./config/prisma.js";
+import { initSocket } from "./config/socket.js";
 import { createApp } from "./app.js";
 import { alertHighMemory, alertLowDisk, sendTelegramAlert } from "./services/alertService.js";
 
 const app = createApp();
+const server = createServer(app);
+initSocket(server);
 
 function registerMonitoringJobs() {
   cron.schedule("0 * * * *", () => {
@@ -21,7 +25,7 @@ function registerMonitoringJobs() {
 
 registerMonitoringJobs();
 
-const server = app.listen(env.PORT, () => {
+server.listen(env.PORT, () => {
   logger.info(`Backend listening on port ${env.PORT}`);
   logger.info({ corsOrigins: activeCorsOrigins }, "Active CORS origins");
   sendTelegramAlert(`\u2705 Server Started | Port: ${env.PORT} | ${env.NODE_ENV} | ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`).catch(() => null);

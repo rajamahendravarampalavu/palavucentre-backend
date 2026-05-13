@@ -5,6 +5,7 @@ import {
   handleRazorpayWebhook,
   verifyRazorpayPayment,
 } from "../services/payment.service.js";
+import { emitToAdmin } from "../config/socket.js";
 
 export async function createRazorpayOrderHandler(req, res) {
   const data = await createRazorpayOrderForVerifiedOrder(req.body, { user: req.user });
@@ -19,6 +20,8 @@ export async function createRazorpayOrderHandler(req, res) {
 export async function verifyRazorpayPaymentHandler(req, res) {
   const data = await verifyRazorpayPayment(req.body, { user: req.user });
 
+  emitToAdmin("payment-verified", { orderNumber: data.order?.orderNumber });
+
   res.status(StatusCodes.OK).json({
     success: true,
     message: "Payment verified successfully",
@@ -32,6 +35,8 @@ export async function razorpayWebhookHandler(req, res) {
     rawBody: req.rawBody,
     signature: req.get("x-razorpay-signature"),
   });
+
+  emitToAdmin("payment-webhook", { event: req.body?.event });
 
   res.status(StatusCodes.OK).json({
     success: true,
